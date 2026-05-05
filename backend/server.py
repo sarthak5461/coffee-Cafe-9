@@ -96,6 +96,7 @@ class ReviewIn(BaseModel):
     rating: float = Field(ge=1, le=5)
     comment: str
     is_featured: bool = False
+    is_approved: bool = True
 
 
 class ReviewOut(ReviewIn):
@@ -129,6 +130,7 @@ class ContactIn(BaseModel):
 class ContactOut(ContactIn):
     id: str
     created_at: str
+    is_read: bool = False
 
 
 # ---------- Seed ----------
@@ -219,7 +221,8 @@ async def seed_data():
             docs.append({
                 "id": str(uuid.uuid4()),
                 "name": n, "rating": r, "comment": c,
-                "is_featured": f, "created_at": now,
+                "is_featured": f, "is_approved": True,
+                "created_at": now,
             })
         await db.reviews.insert_many(docs)
 
@@ -328,19 +331,28 @@ async def delete_menu(item_id: str, user: dict = Depends(get_current_admin)):
 
 # ---------- Reviews ----------
 @api.get("/reviews", response_model=List[ReviewOut])
-async def list_reviews(featured: Optional[bool] = None):
+async def list_reviews(featured: Optional[bool] = None, approved: Optional[bool] = True, all: bool = False):
+    """Public list returns approved reviews only by default. Pass `all=true` (admin) to include unapproved."""
     q = {}
     if featured is not None:
         q["is_featured"] = featured
+    if not all and approved is not None:
+        q["is_approved"] = approved
     items = await db.reviews.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
+    # Backfill default for legacy docs
+    for it in items:
+        it.setdefault("is_approved", True)
     return items
 
 
 @api.post("/reviews", response_model=ReviewOut)
 async def create_review(payload: ReviewIn):
-    """Public submission allowed; admin can mark as featured."""
+    """Public submission allowed; admin can approve & feature."""
     doc = payload.model_dump()
     doc["id"] = str(uuid.uuid4())
+    # Public submissions start unapproved unless caller is admin (we don't check; default to pending)
+    doc["is_approved"] = False
+    doc["is_featured"] = False
     doc["created_at"] = datetime.now(timezone.utc).isoformat()
     await db.reviews.insert_one(doc)
     doc.pop("_id", None)
@@ -358,6 +370,32 @@ async def update_review(rid: str, payload: ReviewIn, user: dict = Depends(get_cu
     return res
 
 
+@api.patch("/reviews/{rid}/approve", response_model=ReviewOut)
+async def toggle_approve_review(rid: str, user: dict = Depends(get_current_admin)):
+    cur = await db.reviews.find_one({"id": rid})
+    if not cur:
+        raise HTTPException(status_code=404, detail="Review not found")
+    new_val = not cur.get("is_approved", True)
+    res = await db.reviews.find_one_and_update(
+        {"id": rid}, {"$set": {"is_approved": new_val}},
+        return_document=True, projection={"_id": 0},
+    )
+    return res
+
+
+@api.patch("/reviews/{rid}/feature", response_model=ReviewOut)
+async def toggle_feature_review(rid: str, user: dict = Depends(get_current_admin)):
+    cur = await db.reviews.find_one({"id": rid})
+    if not cur:
+        raise HTTPException(status_code=404, detail="Review not found")
+    new_val = not cur.get("is_featured", False)
+    res = await db.reviews.find_one_and_update(
+        {"id": rid}, {"$set": {"is_featured": new_val}},
+        return_document=True, projection={"_id": 0},
+    )
+    return res
+
+
 @api.delete("/reviews/{rid}")
 async def delete_review(rid: str, user: dict = Depends(get_current_admin)):
     res = await db.reviews.delete_one({"id": rid})
@@ -371,6 +409,7 @@ async def delete_review(rid: str, user: dict = Depends(get_current_admin)):
 async def submit_contact(payload: ContactIn):
     doc = payload.model_dump()
     doc["id"] = str(uuid.uuid4())
+    doc["is_read"] = False
     doc["created_at"] = datetime.now(timezone.utc).isoformat()
     await db.contacts.insert_one(doc)
     doc.pop("_id", None)
@@ -380,7 +419,58 @@ async def submit_contact(payload: ContactIn):
 @api.get("/contact", response_model=List[ContactOut])
 async def list_contacts(user: dict = Depends(get_current_admin)):
     items = await db.contacts.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    for it in items:
+        it.setdefault("is_read", False)
     return items
+
+
+@api.patch("/contact/{cid}/read", response_model=ContactOut)
+async def toggle_contact_read(cid: str, user: dict = Depends(get_current_admin)):
+    cur = await db.contacts.find_one({"id": cid})
+    if not cur:
+        raise HTTPException(status_code=404, detail="Message not found")
+    new_val = not cur.get("is_read", False)
+    res = await db.contacts.find_one_and_update(
+        {"id": cid}, {"$set": {"is_read": new_val}},
+        return_document=True, projection={"_id": 0},
+    )
+    return res
+
+
+@api.delete("/contact/{cid}")
+async def delete_contact(cid: str, user: dict = Depends(get_current_admin)):
+    res = await db.contacts.delete_one({"id": cid})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return {"ok": True}
+
+
+# ---------- Admin Stats ----------
+@api.get("/admin/stats")
+async def admin_stats(user: dict = Depends(get_current_admin)):
+    menu_count = await db.menu.count_documents({})
+    reviews_count = await db.reviews.count_documents({})
+    pending_reviews = await db.reviews.count_documents({"is_approved": False})
+    contacts_count = await db.contacts.count_documents({})
+    unread_contacts = await db.contacts.count_documents({"is_read": False})
+    popular_count = await db.menu.count_documents({"is_popular": True})
+    recent = await db.contacts.find({}, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
+    for it in recent:
+        it.setdefault("is_read", False)
+    by_category = {}
+    async for it in db.menu.find({}, {"_id": 0, "category": 1}):
+        c = it.get("category", "Other")
+        by_category[c] = by_category.get(c, 0) + 1
+    return {
+        "menu_count": menu_count,
+        "popular_count": popular_count,
+        "reviews_count": reviews_count,
+        "pending_reviews": pending_reviews,
+        "contacts_count": contacts_count,
+        "unread_contacts": unread_contacts,
+        "menu_by_category": by_category,
+        "recent_contacts": recent,
+    }
 
 
 @api.get("/")

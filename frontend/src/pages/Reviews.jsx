@@ -31,10 +31,9 @@ export default function Reviews() {
     if (!form.name.trim() || !form.comment.trim()) return;
     setSubmitting(true);
     try {
-      const { data } = await api.post("/reviews", { ...form, rating: Number(form.rating) });
-      setReviews((prev) => [data, ...prev]);
+      await api.post("/reviews", { ...form, rating: Number(form.rating) });
       setForm({ name: "", rating: 5, comment: "" });
-      toast.success("Thanks for sharing your experience!");
+      toast.success("Thanks! Your review is pending approval and will appear shortly.");
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Could not submit review");
     } finally {

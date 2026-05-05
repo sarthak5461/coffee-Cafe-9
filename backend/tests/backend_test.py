@@ -202,3 +202,125 @@ class TestContact:
         r = requests.get(f"{API}/contact", headers=auth_headers)
         assert r.status_code == 200
         assert isinstance(r.json(), list)
+
+    # Iter2: read toggle and delete
+    def test_contact_read_toggle_and_delete(self, auth_headers):
+        # public submit
+        cr = requests.post(f"{API}/contact", json={"name": "TEST_Read", "email": "r@e.com", "message": "msg"})
+        assert cr.status_code == 200
+        cid = cr.json()["id"]
+        assert cr.json()["is_read"] is False
+
+        # toggle read requires auth
+        un = requests.patch(f"{API}/contact/{cid}/read")
+        assert un.status_code == 401
+        # toggle to read
+        t1 = requests.patch(f"{API}/contact/{cid}/read", headers=auth_headers)
+        assert t1.status_code == 200 and t1.json()["is_read"] is True
+        # toggle back to unread
+        t2 = requests.patch(f"{API}/contact/{cid}/read", headers=auth_headers)
+        assert t2.status_code == 200 and t2.json()["is_read"] is False
+
+        # delete requires auth
+        un_d = requests.delete(f"{API}/contact/{cid}")
+        assert un_d.status_code == 401
+        d = requests.delete(f"{API}/contact/{cid}", headers=auth_headers)
+        assert d.status_code == 200
+        # 404 on subsequent delete
+        d2 = requests.delete(f"{API}/contact/{cid}", headers=auth_headers)
+        assert d2.status_code == 404
+
+
+# ---------- Iter2: Reviews approve/feature & visibility ----------
+class TestReviewsApproval:
+    def test_public_submit_creates_pending(self, auth_headers):
+        r = requests.post(f"{API}/reviews", json={"name": "TEST_Pending", "rating": 4, "comment": "c"})
+        assert r.status_code == 200
+        body = r.json()
+        rid = body["id"]
+        assert body["is_approved"] is False
+        assert body["is_featured"] is False
+
+        # default GET returns approved only -> pending NOT in list
+        lst = requests.get(f"{API}/reviews").json()
+        assert not any(x["id"] == rid for x in lst), "pending review must not appear in default /reviews"
+
+        # all=true returns it
+        all_lst = requests.get(f"{API}/reviews", params={"all": "true"}).json()
+        assert any(x["id"] == rid for x in all_lst)
+
+        # cleanup
+        requests.delete(f"{API}/reviews/{rid}", headers=auth_headers)
+
+    def test_approve_toggle_requires_auth_and_flips(self, auth_headers):
+        r = requests.post(f"{API}/reviews", json={"name": "TEST_Appr", "rating": 5, "comment": "ok"})
+        rid = r.json()["id"]
+        # unauth
+        u = requests.patch(f"{API}/reviews/{rid}/approve")
+        assert u.status_code == 401
+        # approve -> True
+        t1 = requests.patch(f"{API}/reviews/{rid}/approve", headers=auth_headers)
+        assert t1.status_code == 200 and t1.json()["is_approved"] is True
+        # now visible in default list
+        assert any(x["id"] == rid for x in requests.get(f"{API}/reviews").json())
+        # toggle back -> False
+        t2 = requests.patch(f"{API}/reviews/{rid}/approve", headers=auth_headers)
+        assert t2.json()["is_approved"] is False
+        requests.delete(f"{API}/reviews/{rid}", headers=auth_headers)
+
+    def test_feature_toggle(self, auth_headers):
+        r = requests.post(f"{API}/reviews", json={"name": "TEST_Feat", "rating": 5, "comment": "ok"})
+        rid = r.json()["id"]
+        u = requests.patch(f"{API}/reviews/{rid}/feature")
+        assert u.status_code == 401
+        t1 = requests.patch(f"{API}/reviews/{rid}/feature", headers=auth_headers)
+        assert t1.status_code == 200 and t1.json()["is_featured"] is True
+        t2 = requests.patch(f"{API}/reviews/{rid}/feature", headers=auth_headers)
+        assert t2.json()["is_featured"] is False
+        requests.delete(f"{API}/reviews/{rid}", headers=auth_headers)
+
+    def test_approve_404(self, auth_headers):
+        r = requests.patch(f"{API}/reviews/nonexistent-id/approve", headers=auth_headers)
+        assert r.status_code == 404
+
+
+# ---------- Iter2: Admin Stats ----------
+class TestAdminStats:
+    def test_stats_requires_auth(self):
+        r = requests.get(f"{API}/admin/stats")
+        assert r.status_code == 401
+
+    def test_stats_shape_and_values(self, auth_headers):
+        r = requests.get(f"{API}/admin/stats", headers=auth_headers)
+        assert r.status_code == 200
+        d = r.json()
+        for k in ["menu_count", "popular_count", "reviews_count", "pending_reviews",
+                  "contacts_count", "unread_contacts", "menu_by_category", "recent_contacts"]:
+            assert k in d, f"missing key {k}"
+        assert isinstance(d["menu_by_category"], dict)
+        assert isinstance(d["recent_contacts"], list)
+        assert len(d["recent_contacts"]) <= 5
+        # menu_count must equal sum of categories
+        assert d["menu_count"] == sum(d["menu_by_category"].values())
+        assert d["menu_count"] >= 13  # seeded
+        # popular_count <= menu_count
+        assert 0 <= d["popular_count"] <= d["menu_count"]
+        # pending_reviews <= reviews_count
+        assert 0 <= d["pending_reviews"] <= d["reviews_count"]
+
+    def test_stats_pending_increments_after_public_submit(self, auth_headers):
+        before = requests.get(f"{API}/admin/stats", headers=auth_headers).json()["pending_reviews"]
+        r = requests.post(f"{API}/reviews", json={"name": "TEST_StatPending", "rating": 5, "comment": "c"})
+        rid = r.json()["id"]
+        after = requests.get(f"{API}/admin/stats", headers=auth_headers).json()["pending_reviews"]
+        assert after == before + 1
+        requests.delete(f"{API}/reviews/{rid}", headers=auth_headers)
+
+    def test_stats_unread_increments_after_contact(self, auth_headers):
+        before = requests.get(f"{API}/admin/stats", headers=auth_headers).json()["unread_contacts"]
+        r = requests.post(f"{API}/contact", json={"name": "TEST_StatU", "email": "s@e.com", "message": "x"})
+        cid = r.json()["id"]
+        after = requests.get(f"{API}/admin/stats", headers=auth_headers).json()["unread_contacts"]
+        assert after == before + 1
+        # cleanup
+        requests.delete(f"{API}/contact/{cid}", headers=auth_headers)

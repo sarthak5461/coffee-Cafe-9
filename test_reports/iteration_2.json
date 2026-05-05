@@ -1,0 +1,56 @@
+{
+  "summary": "Iteration 2 admin CMS testing complete. Backend pytest: 29/30 passed (1 failure exposes a real bug — see below). All new endpoints (admin/stats, reviews approve/feature, contact read toggle/delete) working with proper auth guards. Frontend Playwright e2e: login (invalid->error, valid->/admin lands on Dashboard tab), Dashboard with 4 stat cards + recent messages + menu-by-category bars, Sidebar tabs (5) + sidebar badges, Menu tab category filters + delete confirm modal, Reviews tab with 4 view tabs (all/pending/approved/featured) + approve toggle + feature toggle, Homepage tab with hero/info bar/about/contact + 14 popular toggle cards + save toast, Inbox tab with 3 view tabs + read toggle + delete confirm, Logout. All data-testids in spec resolved.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/reviews (default)", "issue": "Returns 0 reviews even though 7 exist — legacy seeded review docs lack the new `is_approved` field, so the default Mongo filter `{is_approved: True}` matches none. Public Reviews page on the website will appear empty as a regression. Fix: in seed_data, run `db.reviews.update_many({is_approved: {$exists: false}}, {$set: {is_approved: True}})` (and similar for `is_featured`); same for contacts (`is_read`). Alternatively change query to `{$or: [{is_approved: True}, {is_approved: {$exists: False}}]}`.", "priority": "HIGH"},
+      {"endpoint": "GET /api/admin/stats `unread_contacts` & `pending_reviews`", "issue": "Counts use `count_documents({is_read: False})` / `{is_approved: False}` which exclude legacy docs missing the field. Result: Dashboard/Sidebar show inconsistent counts vs. the actual list. Observed: Dashboard card 'Inbox' says `5 / 1 unread` but Inbox tab shows `Unread 5`. Sidebar badge on Inbox shows `1` but list has 5 unread. Same root cause as above — fix legacy backfill on lifespan.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "PATCH /api/reviews/{id}/approve & /feature", "issue": "Returns updated review but `is_approved`/`is_featured` toggle relies on `cur.get(field, default)` — for legacy docs without the field, default is used which can produce non-intuitive first toggle (e.g., toggling `approve` on a legacy review whose stored field is missing returns `is_approved=False` first because default was True). Backfilling legacy docs would fix this too."},
+      {"endpoint": "POST /api/auth/login", "issue": "No brute-force lockout / rate limiting (carryover from iter1, playbook recommendation). Non-blocker for MVP."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AdminDashboard stat cards", "issue": "Stat cards rendered correctly visually but lack `data-testid` attributes (e.g., `stat-menu`, `stat-reviews`, `stat-inbox`, `stat-homepage`). Adding them improves automated testability per project rule.", "selector": "n/a", "priority": "LOW"},
+      {"component": "AdminDashboard 'Inbox' card subtitle", "issue": "Shows `1 unread` while sibling Inbox tab shows `Unread 5` — mismatch caused by backend stats bug above. Once legacy docs are backfilled with `is_read=false`, this card will show the correct number.", "selector": "[data-testid='admin-tab-dashboard']", "priority": "HIGH"},
+      {"component": "Sidebar badge for Inbox", "issue": "Same mismatch: badge=1 but inbox unread count=5. Driven by `/api/admin/stats.unread_contacts`.", "selector": "[data-testid='admin-tab-contacts'] badge", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Public reviews list (GET /api/reviews)", "issue": "Default query returns no reviews because legacy seeded docs lack `is_approved`. Public /reviews and homepage Featured reviews section will be empty — visible regression to end users.", "affected_selectors": ["public reviews page", "homepage 'What our customers say'"]}
+    ],
+    "design_issues": [
+      {"screen": "Admin logout", "issues": ["After logout, URL becomes /admin which redirects to /admin/login (because user=null). PRD says should land on '/'. Suggest navigate('/') after logout call."]},
+      {"screen": "Login page invalid creds", "issues": ["No visible inline error toast/text was detected via standard `.error` selectors (only network 401 in console). Either ensure the error string lives in a `.error`/`role=alert` container or show a toast for failed login."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "BACKFILL LEGACY DOCS on lifespan: db.reviews.update_many({is_approved: {$exists: False}}, {$set: {is_approved: True}}); db.reviews.update_many({is_featured: {$exists: False}}, {$set: {is_featured: False}}); db.contacts.update_many({is_read: {$exists: False}}, {$set: {is_read: False}}). This fixes the public reviews page (currently empty) AND the dashboard/sidebar count mismatch.",
+    "Add `data-testid` attributes to the 4 dashboard stat cards (stat-menu, stat-reviews, stat-inbox, stat-homepage) and the recent-contacts list / menu-by-category section.",
+    "Optional: redirect to '/' after admin logout to match PRD wording.",
+    "Optional: surface a visible error message (toast or .error span) on /admin/login when credentials are invalid."
+  ],
+  "critical_code_review_comments": [
+    "server.py — list_reviews default filter uses `{is_approved: True}`; legacy docs missing the field are silently filtered out. Either backfill on lifespan (preferred) or change to `$or` query to handle absent field.",
+    "server.py — admin_stats `pending_reviews` / `unread_contacts` use `count_documents({field: False})` which excludes docs without the field. Same backfill fix applies. This is the ONLY reason the Inbox sidebar badge says 1 while the list shows 5.",
+    "server.py — toggle endpoints (`/reviews/{id}/approve`, `/reviews/{id}/feature`, `/contact/{id}/read`) read current value with `cur.get(field, default)`; consistent backfill removes ambiguity.",
+    "server.py is now 493 lines — well under the 700-line limit; no refactor needed yet, but consider splitting into routers (auth, menu, reviews, contact, admin) when adding more features.",
+    "Pydantic ReviewIn defaults `is_approved=True` — fine, but POST handler hard-overrides to False (correct for public submissions). Document this in OpenAPI schema if needed.",
+    "Admin /auth/login still has no rate limiting (carryover from iter1).",
+    "Frontend dashboard stat cards lack data-testid attributes (project rule)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added 12 new tests across TestContact iter2, TestReviewsApproval, TestAdminStats classes)"
+  ],
+  "success_rate": {"backend": "97% (29/30 — the 1 failure is a real backend data bug, not a test bug)", "frontend": "95% (all flows work; HIGH-priority data inconsistency between stats endpoint and list endpoints surfaces as wrong sidebar/card counts; logout redirect is minor UX deviation)"},
+  "test_credentials": "admin@coffeecafe9.com / admin123 (verified against /app/memory/test_credentials.md)",
+  "seed_data_creation": "No new seed data created. Used existing seeded 13 menu items (+ 1 lingering TEST item from iter1 = 14 visible), 6 seeded reviews (+ 1 lingering TEST_PWUser = 7), 5 lingering TEST contact messages from iter1. Pytest tests clean up their own TEST_-prefixed data.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "After main agent applies the legacy-doc backfill in seed_data, re-run pytest (TestReviews::test_list_reviews should pass) and verify (a) public /reviews page lists the seeded reviews, (b) Dashboard 'Reviews' card shows pending=0, (c) Inbox sidebar badge matches the Unread tab count. data-testids used in the admin: admin-tab-{dashboard|menu|reviews|homepage|contacts}, admin-reviews-view-{all|pending|approved|featured}, admin-contacts-view-{all|unread|read}, admin-review-approve-{id}, admin-review-feature-{id}, admin-contact-toggle-{id}, admin-popular-toggle-{id}, admin-menu-confirm-delete, admin-contacts-confirm-delete. Confirm dialogs are shadcn AlertDialog — Cancel button has text 'Cancel' inside [role='alertdialog'].",
+  "rca of the issue": "Legacy MongoDB documents (seeded BEFORE iter2 added `is_approved` to ReviewIn and `is_read` to ContactOut) do NOT contain those fields. Mongo equality filters like `{is_approved: True}` and `{is_read: False}` only match docs where the field exists with that exact value, so legacy docs are excluded from both list queries and count queries. Reproduction: (1) reset DB → run iter1 seed (no `is_approved` field on reviews) → restart server with iter2 code; (2) GET /api/reviews returns []; (3) GET /api/admin/stats returns pending_reviews=0 / unread_contacts=1 while /api/contact list has 5 unread items. Mitigation: in seed_data add three update_many calls to backfill missing fields with sensible defaults (is_approved=True for legacy reviews, is_featured=False, is_read=False for legacy contacts). Alternative: change list/count filters to `$or: [{field: value}, {field: {$exists: False}}]`."
+}
