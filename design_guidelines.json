@@ -1,0 +1,132 @@
+{
+  "project_name": "Coffee Cafe 9",
+  "theme": "LIGHT",
+  "archetype": "Archetype 1 (Organic & Earthy)",
+  "vibe": "Warm, cozy cafe vibe. Welcoming, appetizing, earthy, with an artisan touch.",
+  "colors": {
+    "background": "#FAF8F5",
+    "surface": "#FFFFFF",
+    "surface_secondary": "#F3EBE1",
+    "primary": "#5C4033",
+    "primary_hover": "#422E25",
+    "secondary": "#D28F70",
+    "text_main": "#2C1E16",
+    "text_muted": "#7A6A61",
+    "border": "#E8E0D9",
+    "error": "#B0413E",
+    "success": "#4A7B59"
+  },
+  "typography": {
+    "fonts": {
+      "headings": "'Cormorant Garamond', 'Tiro Devanagari Hindi', serif",
+      "body": "'Outfit', 'Mukta', sans-serif"
+    },
+    "imports": [
+      "@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600&family=Tiro+Devanagari+Hindi:ital,wght@0,400;1,400&family=Mukta:wght@300;400;500&display=swap');"
+    ],
+    "scale": {
+      "h1": "text-5xl md:text-6xl tracking-tight leading-none font-semibold",
+      "h2": "text-3xl md:text-4xl tracking-tight font-medium",
+      "h3": "text-2xl md:text-3xl tracking-tight font-medium",
+      "h4": "text-xl font-medium",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm tracking-wide uppercase font-medium"
+    },
+    "bilingual_rules": "For dual-language text, render English in the primary font and Hindi/Devanagari immediately following or stacked below. Use the specified Devanagari fallback fonts to ensure aesthetic alignment. E.g., Hero title uses English H1, with Hindi subtitle in an elegant serif styling slightly smaller."
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous Spacing Philosophy. Use p-8 to p-16 for main sections to allow the content to breathe. Do not cram elements.",
+    "grid_system": "Bento-style grids for features and services. 12-column foundation for desktop, stacking to 1-column for mobile.",
+    "container": "max-w-7xl mx-auto px-6 md:px-12",
+    "radius": "rounded-2xl for main cards, rounded-full for pills and some CTA buttons."
+  },
+  "components": {
+    "hero": {
+      "layout": "Full height (min-h-[80vh]) or substantial visual block. Use a high-quality cafe interior background image.",
+      "overlay": "bg-black/40 to ensure the white serif typography and warm accents pop. Never obscure the image completely.",
+      "typography": "Center-aligned or elegantly asymmetric text block. English main title, elegant Hindi subtitle.",
+      "ctas": "Primary CTA in Espresso Brown (#5C4033) background with white text, Secondary CTA with a backdrop-blur glass effect or subtle border."
+    },
+    "quick_info_bar": {
+      "layout": "Overlapping the bottom of the hero or placed directly below. A 3-column bento setup (Rating, Price, Services).",
+      "style": "Glassmorphism if overlapping hero (backdrop-blur-xl bg-white/70 border border-white/20), or Solid Surface if below."
+    },
+    "navbar": {
+      "style": "Sticky at the top (z-50). Glassmorphism (bg-white/80 backdrop-blur-md) with a subtle bottom border. Include English and small Hindi branding.",
+      "links": "Hover state should change text color to primary (#5C4033) and potentially show a subtle underline."
+    },
+    "menu_cards": {
+      "layout": "Vertical stacked cards or horizontal list items for standard menu. Image on top (aspect-video or square), content below.",
+      "style": "Surface background (#FFFFFF), subtle ambient shadow (shadow-sm), rounded-2xl. Hover effect: slight lift (-translate-y-1) and shadow-md.",
+      "typography": "Item name in Serif, description in Sans-serif muted text. Price in strong primary color."
+    },
+    "reviews": {
+      "layout": "Masonry or horizontal scrollable container.",
+      "style": "Cards with soft background (surface_secondary #F3EBE1), quotation mark icons in terracotta (#D28F70)."
+    },
+    "admin_panel": {
+      "layout": "Sidebar navigation, clean top bar, high-density data tables.",
+      "style": "Strict, clean, flat surfaces. Minimal shadows. Use Shadcn primitives heavily (Tables, Tabs, Dialogs) with the brand's primary color for active states."
+    }
+  },
+  "animations": {
+    "hover": "transition-all duration-300 ease-out",
+    "page_load": "Framer motion staggered fade-up for hero elements and list items. (initial: opacity-0 translate-y-4, animate: opacity-100 translate-y-0)",
+    "scroll": "Use simple Intersection Observer or Framer Motion 'whileInView' for sections revealing gently as the user scrolls."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "Clean, stroke-based, sized proportionally to text (usually w-5 h-5 or w-6 h-6)."
+  },
+  "images": {
+    "hero_background": {
+      "url": "https://images.pexels.com/photos/35113259/pexels-photo-35113259.jpeg",
+      "description": "Chic cafe interior with warm terracotta tones."
+    },
+    "about_barista": {
+      "url": "https://images.unsplash.com/photo-1771784969433-970ccd2078ce",
+      "description": "Barista preparing a drink behind a rustic counter."
+    },
+    "menu_items": {
+      "veg_burger": {
+        "url": "https://images.pexels.com/photos/5554607/pexels-photo-5554607.jpeg",
+        "description": "Mouth-watering cheeseburger on a wooden table."
+      },
+      "white_sauce_pasta": {
+        "url": "https://images.unsplash.com/photo-1748012199657-3f34292cdf70",
+        "description": "Creamy white sauce pasta dish."
+      },
+      "cold_coffee": {
+        "url": "https://images.unsplash.com/photo-1759923594639-96bbbdf09514",
+        "description": "Cold coffee with ice cream / iced tea glass."
+      },
+      "hot_chocolate": {
+        "url": "https://images.unsplash.com/photo-1720664282854-6081564f7e88",
+        "description": "Hot chocolate mug with marshmallows."
+      },
+      "peach_iced_tea": {
+        "url": "https://images.unsplash.com/photo-1758981919417-ed7574fd988b",
+        "description": "Refreshing iced tea on a wooden table."
+      },
+      "garlic_noodles": {
+        "url": "https://images.unsplash.com/photo-1730043033919-46bd6332f302",
+        "description": "Plate of garlic noodles."
+      },
+      "cafe_mocha": {
+        "url": "https://images.pexels.com/photos/15404792/pexels-photo-15404792.jpeg",
+        "description": "Coffee cup with intricate latte art."
+      }
+    }
+  },
+  "testing": {
+    "data_testids": "All interactive elements, forms, links, and buttons MUST include 'data-testid' attributes in kebab-case."
+  },
+  "instructions_to_main_agent": [
+    "Configure Tailwind with the provided color variables and font families.",
+    "Implement the bilingual text elegantly (e.g., 'Coffee Cafe 9' as primary H1, 'कॉफी कैफे नाईन' as a secondary block below it with slightly lower opacity or weight).",
+    "Use Framer Motion for smooth section reveals and card hover effects.",
+    "Ensure all Shadcn components (used primarily in the Admin Panel but also for interactive elements like the Contact Form or Dropdowns) are customized to remove the 'Vercel-look' and match the warm cafe theme.",
+    "Never use placeholder image URLs. Rely strictly on the images provided in this JSON.",
+    "Use Lucide-react for all icons."
+  ]
+}
