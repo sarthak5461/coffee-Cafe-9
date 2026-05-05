@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { Navigate, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api, formatApiError } from "../lib/api";
 import { Toaster, toast } from "sonner";
@@ -18,9 +18,15 @@ const EMPTY_REVIEW = { name: "", rating: 5, comment: "", is_featured: false };
 export default function AdminDashboard() {
   const { user, checking, logout } = useAuth();
   const [tab, setTab] = useState("menu");
+  const navigate = useNavigate();
 
   if (checking) return null;
   if (!user) return <Navigate to="/admin/login" replace />;
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
 
   return (
     <div className="min-h-screen bg-cafe-paper" data-testid="admin-dashboard">
@@ -38,7 +44,7 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-3">
             <Link to="/" className="text-sm text-cafe-muted hover:text-cafe-espresso">View site</Link>
-            <button onClick={logout} className="btn-outline" data-testid="admin-logout">
+            <button onClick={handleLogout} className="btn-outline" data-testid="admin-logout">
               <LogOut className="w-4 h-4" /> Logout
             </button>
           </div>
@@ -164,7 +170,7 @@ function MenuAdmin() {
             {items.map((it) => (
               <div key={it.id} className="bg-cafe-snow border border-cafe-line rounded-xl p-4 flex items-center gap-4" data-testid={`admin-menu-row-${it.id}`}>
                 <div className="w-16 h-16 rounded-lg bg-cafe-cream overflow-hidden shrink-0">
-                  {it.image && <img src={it.image} alt="" className="w-full h-full object-cover" />}
+                  {it.image ? <img src={it.image} alt="" className="w-full h-full object-cover" /> : null}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
