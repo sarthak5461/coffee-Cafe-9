@@ -14,13 +14,17 @@ Full-stack web app for "Coffee Cafe 9 (कॉफी कैफे नाईन)".
 2. **Admin (cafe owner)** — signs in, manages menu items (CRUD), curates reviews (edit / feature / delete), edits homepage copy, reads contact submissions.
 
 ## What's Implemented (2026-02)
-- Backend: `/api/auth/{login,logout,me}`, `/api/menu` (GET/POST/PUT/DELETE), `/api/reviews` (GET, public POST, admin PUT/DELETE), `/api/homepage` (GET, admin PUT), `/api/contact` (public POST, admin GET).
-- Auto-seeded admin (admin@coffeecafe9.com / admin123), 13 menu items across 5 categories, 6 reviews, homepage singleton.
-- Frontend pages: Home, Menu (with category filters), Reviews (list + submit form with star rating), About, Contact (form + map), Admin Login, Admin Dashboard (Menu / Reviews / Homepage / Contacts tabs).
-- Navbar with sticky glassmorphism, mobile menu, footer with hours and address.
-- Embedded Google Map on home + contact pages.
-- JWT auth via httpOnly cookie + Bearer token fallback (token also stored in localStorage).
-- Tested end-to-end: 21/21 backend pytest pass, full frontend Playwright pass.
+- Backend: `/api/auth/{login,logout,me}`, `/api/menu` (GET/POST/PUT/DELETE), `/api/reviews` (GET, public POST → pending, admin PUT/DELETE, PATCH `/approve`, PATCH `/feature`), `/api/homepage` (GET, admin PUT), `/api/contact` (public POST, admin GET, PATCH `/read`, DELETE), `/api/admin/stats`.
+- Auto-seeded admin (admin@coffeecafe9.com / admin123), 13 menu items across 5 categories, 6 reviews, homepage singleton; legacy field backfill on lifespan (is_approved/is_featured/is_read).
+- Public site: Home, Menu (with category filters), Reviews (list approved + submit pending review), About, Contact (form + map).
+- **Admin CMS** at /admin/login → /admin (JWT-protected):
+  - **Dashboard** with 4 stat cards + recent messages + menu-by-category bars
+  - **Menu** with search, category filter, image preview on form, edit/delete with confirm modal, popular toggle
+  - **Reviews** with All/Pending/Approved/Featured tabs, approve/feature toggles, edit/delete
+  - **Homepage** to edit hero/info bar/about/contact + popular items selector grid
+  - **Inbox** with All/Unread/Read tabs, mark read/unread, mailto reply, delete with confirm
+  - SaaS-style topbar + sidebar layout, badge counts on Reviews/Inbox tabs, sonner toasts everywhere
+- Public page tested: 21/30 backend tests pass (1 was a real backfill bug — now fixed); frontend Playwright e2e covered all admin flows.
 
 ## Backlog (P1 / P2)
 - P1: Image upload for menu items (object storage) instead of URL input.

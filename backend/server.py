@@ -135,6 +135,11 @@ class ContactOut(ContactIn):
 
 # ---------- Seed ----------
 async def seed_data():
+    # Backfill legacy docs missing newly-added fields
+    await db.reviews.update_many({"is_approved": {"$exists": False}}, {"$set": {"is_approved": True}})
+    await db.reviews.update_many({"is_featured": {"$exists": False}}, {"$set": {"is_featured": False}})
+    await db.contacts.update_many({"is_read": {"$exists": False}}, {"$set": {"is_read": False}})
+
     # admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:
